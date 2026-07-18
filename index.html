@@ -1,204 +1,196 @@
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aluna Velas | Sanación y Paz Interior en tu Hogar</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
-    <style>
-        .font-serif { font-family: 'Cormorant Garamond', serif; }
-        body { font-family: 'Inter', sans-serif; background-color: #FBFBF9; }
-        * { transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
-    </style>
-</head>
-<body class="text-stone-800 antialiased">
+/**
+ * DataPulse Suite Pro - Enterprise Backend Engine
+ * Arquitectura unificada para control estratégico, inventarios, OKRs y ventas.
+ */
 
-    <!-- NAV BAR MINIMALISTA -->
-    <header class="bg-[#FBFBF9]/80 backdrop-blur-md sticky top-0 z-50 border-b border-stone-200/40">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex justify-between items-center">
-            <div class="text-xl font-serif tracking-widest text-[#566452] font-semibold uppercase">
-                Aluna <span class="font-light text-stone-400">Velas</span>
-            </div>
-            <nav class="hidden sm:flex space-x-8 text-xs tracking-widest uppercase text-stone-500">
-                <a href="#beneficios" class="hover:text-[#566452]">Beneficios</a>
-                <a href="#galeria" class="hover:text-[#566452]">En el Hogar</a>
-                <a href="#coleccion" class="hover:text-[#566452]">Nuestras Velas</a>
-            </nav>
-            <a href="#coleccion" class="bg-[#566452] hover:bg-[#434F40] text-[#FBFBF9] text-xs tracking-widest uppercase px-5 py-2.5 rounded-full shadow-sm">
-                Comprar
-            </a>
-        </div>
-    </header>
+function doPost(e) {
+  // Manejo de CORS preflight manual si fuera necesario
+  var output = ContentService.createTextOutput();
+  output.setMimeType(ContentService.MimeType.JSON);
+  
+  try {
+    var params = JSON.parse(e.postData.contents);
+    var action = params.action;
+    var userEmail = params.correo;
+    var userId = params.idUsuario;
+    
+    if (!userEmail || !userId) {
+      return responseError("Error de Autenticación: Credenciales vacías.");
+    }
+    
+    // Obtener o crear de forma automática la hoja de cálculo para este usuario
+    var ss = obtenerBaseDatos(userEmail, userId);
+    
+    switch(action) {
+      case 'login':
+        return responseSuccess(inicializarTodo(ss));
+        
+      case 'guardarOnboarding':
+      case 'guardarPerfil':
+        actualizarDatosPerfil(ss, params.organizacion);
+        return responseSuccess(inicializarTodo(ss));
+        
+      case 'registrarVenta':
+        insertarFila(ss, "Ventas", [
+          params.venta.fecha,
+          params.venta.producto,
+          params.venta.vendedor,
+          params.venta.ubicacion,
+          parseFloat(params.venta.monto),
+          parseInt(params.venta.cantidad)
+        ]);
+        return responseSuccess(inicializarTodo(ss));
+        
+      case 'registrarProducto':
+        insertarFila(ss, "Productos", [
+          params.producto.nombre,
+          parseInt(params.producto.stockInicial),
+          parseFloat(params.producto.precio)
+        ]);
+        return responseSuccess(inicializarTodo(ss));
+        
+      case 'registrarVendedor':
+        insertarFila(ss, "Vendedores", [
+          params.vendedor.nombre,
+          params.vendedor.zona
+        ]);
+        return responseSuccess(inicializarTodo(ss));
+        
+      case 'registrarOKR':
+        insertarFila(ss, "OKRs", [
+          params.okr.objetivo,
+          params.okr.desc,
+          parseFloat(params.okr.meta)
+        ]);
+        return responseSuccess(inicializarTodo(ss));
+        
+      default:
+        return responseError("Operación ejecutable no identificada.");
+    }
+    
+  } catch(error) {
+    return responseError("Excepción Crítica en Backend: " + error.toString());
+  }
+}
 
-    <!-- HERO SECTION: TRANSMISIÓN DE PAZ -->
-    <section class="relative min-h-[85vh] flex items-center px-6 md:px-12 lg:px-24 overflow-hidden bg-gradient-to-r from-[#F5F4F0] to-[#EAE9E4]">
-        <div class="absolute inset-0 md:left-1/3 opacity-30 md:opacity-90 bg-cover bg-center" style="background-image: url('https://images.unsplash.com/photo-1540555700478-4be289fbecef?q=80&w=1200&auto=format&fit=crop');"></div>
-        <div class="absolute inset-0 bg-gradient-to-r from-[#F5F4F0] via-[#F5F4F0]/90 to-transparent"></div>
+/**
+ * Busca una hoja existente en el Drive del administrador o crea una nueva con la estructura Base.
+ */
+function obtenerBaseDatos(email, id) {
+  var nombreArchivo = "DataPulse_DB_" + id + "_" + email.replace(/[@.]/g, "_");
+  var archivos = DriveApp.getFilesByName(nombreArchivo);
+  
+  if (archivos.hasNext()) {
+    return SpreadsheetApp.open(archivos.next());
+  } else {
+    var nuevoSs = SpreadsheetApp.create(nombreArchivo);
+    prepararEstructuraHojas(nuevoSs);
+    return nuevoSs;
+  }
+}
 
-        <div class="relative max-w-xl z-10 space-y-6">
-            <span class="text-xs uppercase tracking-widest text-[#566452] font-semibold block">Velas de Cera de Soya Natural • Envíos a toda Colombia</span>
-            <h1 class="text-4xl md:text-6xl font-serif text-stone-900 leading-tight">
-                Enciende una vela, <br><span class="italic text-[#566452]">apaga el ruido del mundo.</span>
-            </h1>
-            <p class="text-stone-600 font-light leading-relaxed text-sm md:text-base">
-                Creamos mezclas botánicas curativas vertidass a mano. Diseñadas a través de la aromaterapia para disminuir la ansiedad, restaurar tu paz interior y transformar tu espacio en un santuario de sanación.
-            </p>
-            <div class="pt-2">
-                <a href="#coleccion" class="bg-[#D3A297] hover:bg-[#C29186] text-white font-medium text-xs tracking-widest uppercase px-8 py-4 rounded-full shadow-md inline-block">
-                    Explorar Colección
-                </a>
-            </div>
-        </div>
-    </section>
+/**
+ * Inicializa las tablas estructurales si la base de datos es nueva.
+ */
+function prepararEstructuraHojas(ss) {
+  var estructuras = {
+    "Ventas": [["Fecha", "Producto", "Vendedor", "Ubicación", "Monto", "Cantidad"]],
+    "Productos": [["Nombre", "Stock Inicial", "Precio"]],
+    "Vendedores": [["Nombre", "Zona Asignada"]],
+    "OKRs": [["Objetivo General", "Key Result", "Meta"]],
+    "Organizacion": [["Propiedad", "Valor"]]
+  };
+  
+  // Modificar la primera hoja por defecto
+  var hojasExistentes = ss.getSheets();
+  if(hojasExistentes.length > 0) {
+    hojasExistentes[0].setName("Ventas");
+    hojasExistentes[0].getRange(1, 1, 1, estructuras["Ventas"][0].length).setValues(estructuras["Ventas"]);
+  }
+  
+  for (var nombreHoja in estructuras) {
+    if (!ss.getSheetByName(nombreHoja)) {
+      var hoja = ss.insertSheet(nombreHoja);
+      hoja.getRange(1, 1, 1, estructuras[nombreHoja][0].length).setValues(estructuras[nombreHoja]);
+    }
+  }
+}
 
-    <!-- BENEFICIOS DE LOS AROMAS -->
-    <section id="beneficios" class="py-20 px-6 max-w-5xl mx-auto text-center">
-        <div class="max-w-2xl mx-auto mb-16 space-y-2">
-            <span class="text-xs uppercase tracking-widest text-stone-400">Propósitos Terapéuticos</span>
-            <h2 class="text-3xl font-serif text-stone-900">La ciencia detrás de una fragancia tranquila</h2>
-        </div>
+/**
+ * Lee todo el ecosistema de datos del usuario y lo retorna estructurado para el Frontend.
+ */
+function inicializarTodo(ss) {
+  return {
+    ventas: obtenerDatosHoja(ss, "Ventas"),
+    productos: obtenerDatosHoja(ss, "Productos"),
+    vendedores: obtenerDatosHoja(ss, "Vendedores"),
+    objetivos: obtenerDatosHoja(ss, "OKRs"),
+    organizacion: obtenerDiccionarioPerfil(ss)
+  };
+}
 
-        <div class="grid sm:grid-cols-3 gap-12 text-center">
-            <div class="space-y-3">
-                <div class="text-xl text-[#566452] italic font-serif">01. Alivio del Estrés</div>
-                <h4 class="font-serif text-lg text-stone-800">Lavanda & Manzanilla</h4>
-                <p class="text-stone-500 font-light text-xs leading-relaxed">Reduce la frecuencia cardíaca y aquieta los pensamientos intrusivos antes de dormir.</p>
-            </div>
-            <div class="space-y-3 border-y sm:border-y-0 sm:border-x border-stone-200 py-6 sm:py-0">
-                <div class="text-xl text-[#566452] italic font-serif">02. Enraizamiento</div>
-                <h4 class="font-serif text-lg text-stone-800">Sándalo & Vainilla</h4>
-                <p class="text-stone-500 font-light text-xs leading-relaxed">Ancla tu mente en el momento presente, ideal para meditar o leer en calma.</p>
-            </div>
-            <div class="space-y-3">
-                <div class="text-xl text-[#566452] italic font-serif">03. Renovación Integral</div>
-                <h4 class="font-serif text-lg text-stone-800">Eucalipto & Menta</h4>
-                <p class="text-stone-500 font-light text-xs leading-relaxed">Limpia las vías respiratorias y refresca la atmósfera de espacios sobrecargados.</p>
-            </div>
-        </div>
-    </section>
+function obtenerDatosHoja(ss, nombreHoja) {
+  var hoja = ss.getSheetByName(nombreHoja);
+  if (!hoja) return [];
+  var rango = hoja.getDataRange();
+  var valores = rango.getValues();
+  if (valores.length <= 1) return [];
+  
+  var cabeceras = valores[0];
+  var resultado = [];
+  
+  for (var i = 1; i < valores.length; i++) {
+    var fila = {};
+    for (var j = 0; j < cabeceras.length; j++) {
+      // Formatear fechas nativas a String ISO para que no rompa el JSON
+      if (valores[i][j] instanceof Date) {
+        fila[cabeceras[j]] = valores[i][j].toISOString().split('T')[0];
+      } else {
+        fila[cabeceras[j]] = valores[i][j];
+      }
+    }
+    resultado.push(fila);
+  }
+  return resultado;
+}
 
-    <!-- SECCIÓN NUEVA: ALUNA EN TU HOGAR (GALERÍA LIFESTYLE) -->
-    <section id="galeria" class="py-20 bg-stone-100 px-6">
-        <div class="max-w-6xl mx-auto">
-            <div class="text-center max-w-xl mx-auto mb-12">
-                <span class="text-xs uppercase tracking-widest text-stone-400">Visualiza tu Santuario</span>
-                <h2 class="text-3xl font-serif text-stone-900 mt-1">Espacios que respiran serenidad</h2>
-                <p class="text-stone-500 font-light text-xs mt-2">Nuestras piezas están diseñadas para mimetizarse orgánicamente con la decoración de tu hogar, creando rincones dedicados exclusivamente a tu bienestar.</p>
-            </div>
+function obtenerDiccionarioPerfil(ss) {
+  var hoja = ss.getSheetByName("Organizacion");
+  if (!hoja) return {};
+  var valores = hoja.getDataRange().getValues();
+  var datos = {};
+  for(var i = 1; i < valores.length; i++) {
+    if(valores[i][0]) datos[valores[i][0]] = valores[i][1];
+  }
+  return datos;
+}
 
-            <!-- Bento Grid de Inspiración para el Hogar -->
-            <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
-                <!-- Foto 1: En la sala / Espacio de calma (Grande) -->
-                <div class="md:col-span-7 h-96 rounded-2xl overflow-hidden relative group">
-                    <img src="https://images.unsplash.com/photo-1602874801007-bd458bb1b8b6?q=80&w=1000&auto=format&fit=crop" alt="Vela Aluna en la sala de estar" class="w-full h-full object-cover group-hover:scale-105">
-                    <div class="absolute inset-0 bg-black/20 flex items-end p-6">
-                        <span class="text-white text-xs tracking-widest uppercase font-light">Un ritual para tu sala de estar</span>
-                    </div>
-                </div>
-                <!-- Foto 2: En la mesa de noche (Pequeña) -->
-                <div class="md:col-span-5 h-96 rounded-2xl overflow-hidden relative group">
-                    <img src="https://images.unsplash.com/photo-1513519245088-0e12902e5a38?q=80&w=800&auto=format&fit=crop" alt="Vela en la mesa de noche" class="w-full h-full object-cover group-hover:scale-105">
-                    <div class="absolute inset-0 bg-black/20 flex items-end p-6">
-                        <span class="text-white text-xs tracking-widest uppercase font-light">Paz en tu mesa de noche antes de dormir</span>
-                    </div>
-                </div>
-                <!-- Foto 3: Momento de baño / Spa en casa -->
-                <div class="md:col-span-5 h-80 rounded-2xl overflow-hidden relative group">
-                    <img src="https://images.unsplash.com/photo-1544161515-4ab6ce6db874?q=80&w=800&auto=format&fit=crop" alt="Ritual de baño con velas aromáticas" class="w-full h-full object-cover group-hover:scale-105">
-                    <div class="absolute inset-0 bg-black/20 flex items-end p-6">
-                        <span class="text-white text-xs tracking-widest uppercase font-light">Transforma tu baño en un spa zen</span>
-                    </div>
-                </div>
-                <!-- Foto 4: Detalle de encendido -->
-                <div class="md:col-span-7 h-80 rounded-2xl overflow-hidden relative group">
-                    <img src="https://images.unsplash.com/photo-1572947650440-e8a97ef053b2?q=80&w=1000&auto=format&fit=crop" alt="Fuego sutil de pabilo de madera" class="w-full h-full object-cover group-hover:scale-105">
-                    <div class="absolute inset-0 bg-black/20 flex items-end p-6">
-                        <span class="text-white text-xs tracking-widest uppercase font-light">El sutil y relajante crujido del fuego</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+function actualizarDatosPerfil(ss, objetoPerfil) {
+  var hoja = ss.getSheetByName("Organizacion");
+  hoja.clearContents();
+  hoja.getRange(1,1,1,2).setValues([["Propiedad", "Valor"]]);
+  
+  var filasAInsertar = [];
+  for(var llave in objetoPerfil) {
+    filasAInsertar.push([llave, objetoPerfil[llave]]);
+  }
+  if(filasAInsertar.length > 0) {
+    hoja.getRange(2, 1, filasAInsertar.length, 2).setValues(filasAInsertar);
+  }
+}
 
-    <!-- CATÁLOGO INDIVIDUAL POR TIPO DE VELA -->
-    <section id="coleccion" class="py-24 px-6 max-w-6xl mx-auto">
-        <div class="text-center max-w-xl mx-auto mb-16">
-            <span class="text-xs uppercase tracking-widest text-stone-400">Nuestros Tipos de Vela</span>
-            <h2 class="text-3xl md:text-4xl font-serif text-stone-900 mt-1">Encuentra tu intención</h2>
-        </div>
+function insertarFila(ss, nombreHoja, arrayValores) {
+  var hoja = ss.getSheetByName(nombreHoja);
+  if (!hoja) throw new Error("La tabla " + nombreHoja + " no existe.");
+  hoja.appendRow(arrayValores);
+}
 
-        <div class="grid md:grid-cols-3 gap-8">
-            <!-- Tipo de Vela 1: Lavanda -->
-            <div class="bg-[#FBFBF9] rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-stone-200/60 p-5 flex flex-col justify-between">
-                <div>
-                    <div class="h-72 w-full rounded-xl mb-6 overflow-hidden bg-stone-100">
-                        <img src="https://images.unsplash.com/photo-1603006905003-be475563bc59?q=80&w=600&auto=format&fit=crop" 
-                             alt="Vela Calma Profunda Lavanda" 
-                             class="w-full h-full object-cover hover:scale-105">
-                    </div>
-                    <span class="text-[10px] uppercase tracking-widest text-[#566452] font-semibold bg-[#566452]/10 px-2.5 py-1 rounded-full">Intención: Calma Profunda</span>
-                    <h3 class="text-xl font-serif text-stone-900 mt-4 mb-2">Vela Lavanda Francesa</h3>
-                    <p class="text-stone-500 font-light text-xs leading-relaxed">Presentada en un elegante vaso cerámico artesanal color arena. Ideal para rituales nocturnos.</p>
-                </div>
-                <div class="pt-6 border-t border-stone-100 mt-6 flex justify-between items-center">
-                    <span class="font-medium text-stone-900">$55.000 COP</span>
-                    <button onclick="alert('Vela de Lavanda añadida a tu carrito')" class="border border-[#566452] text-[#566452] hover:bg-[#566452] hover:text-white text-[10px] tracking-widest uppercase font-semibold px-4 py-2 rounded-full">
-                        Comprar
-                    </button>
-                </div>
-            </div>
+function responseSuccess(data) {
+  return ContentService.createTextOutput(JSON.stringify({ status: "success", data: data }))
+                       .setMimeType(ContentService.MimeType.JSON);
+}
 
-            <!-- Tipo de Vela 2: Sándalo -->
-            <div class="bg-[#FBFBF9] rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-stone-200/60 p-5 flex flex-col justify-between">
-                <div>
-                    <div class="h-72 w-full rounded-xl mb-6 overflow-hidden bg-stone-100">
-                        <img src="https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=600&auto=format&fit=crop" 
-                             alt="Vela Armonía Sándalo" 
-                             class="w-full h-full object-cover hover:scale-105">
-                    </div>
-                    <span class="text-[10px] uppercase tracking-widest text-[#D3A297] font-semibold bg-[#D3A297]/10 px-2.5 py-1 rounded-full">Intención: Armonía Terrenal</span>
-                    <h3 class="text-xl font-serif text-stone-900 mt-4 mb-2">Vela Sándalo & Madera</h3>
-                    <p class="text-stone-500 font-light text-xs leading-relaxed">Vaso de vidrio ámbar traslúcido que proyecta destellos cálidos de luz dorada en tus habitaciones.</p>
-                </div>
-                <div class="pt-6 border-t border-stone-100 mt-6 flex justify-between items-center">
-                    <span class="font-medium text-stone-900">$58.000 COP</span>
-                    <button onclick="alert('Vela de Sándalo añadida a tu carrito')" class="border border-[#566452] text-[#566452] hover:bg-[#566452] hover:text-white text-[10px] tracking-widest uppercase font-semibold px-4 py-2 rounded-full">
-                        Comprar
-                    </button>
-                </div>
-            </div>
-
-            <!-- Tipo de Vela 3: Eucalipto -->
-            <div class="bg-[#FBFBF9] rounded-2xl overflow-hidden shadow-sm hover:shadow-md border border-stone-200/60 p-5 flex flex-col justify-between">
-                <div>
-                    <div class="h-72 w-full rounded-xl mb-6 overflow-hidden bg-stone-100">
-                        <img src="https://images.unsplash.com/photo-1596435707261-05e0af33a4be?q=80&w=600&auto=format&fit=crop" 
-                             alt="Vela Aire Fresco Eucalipto" 
-                             class="w-full h-full object-cover hover:scale-105">
-                    </div>
-                    <span class="text-[10px] uppercase tracking-widest text-teal-700 bg-teal-50 px-2.5 py-1 rounded-full">Intención: Aire Fresco</span>
-                    <h3 class="text-xl font-serif text-stone-900 mt-4 mb-2">Vela Eucalipto Esencial</h3>
-                    <p class="text-stone-500 font-light text-xs leading-relaxed">Contenedor minimalista color blanco lino con sutiles incrustaciones de hojas botánicas reales.</p>
-                </div>
-                <div class="pt-6 border-t border-stone-100 mt-6 flex justify-between items-center">
-                    <span class="font-medium text-stone-900">$55.000 COP</span>
-                    <button onclick="alert('Vela de Eucalipto añadida a tu carrito')" class="border border-[#566452] text-[#566452] hover:bg-[#566452] hover:text-white text-[10px] tracking-widest uppercase font-semibold px-4 py-2 rounded-full">
-                        Comprar
-                    </button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FOOTER MINIMALISTA -->
-    <footer class="bg-stone-900 text-stone-400 py-12 px-6 border-t border-stone-800 text-center text-xs space-y-3">
-        <p class="text-stone-200 font-serif text-lg tracking-widest uppercase">Aluna Velas</p>
-        <p class="font-light">Hecho conscientemente en Colombia. Envíos protegidos a todo el territorio nacional.</p>
-        <p class="text-stone-600 pt-4">&copy; 2026 Aluna Velas. Todos los derechos reservados.</p>
-    </footer>
-
-</body>
-</html>
+function responseError(msg) {
+  return ContentService.createTextOutput(JSON.stringify({ status: "error", message: msg }))
+                       .setMimeType(ContentService.MimeType.JSON);
+}
